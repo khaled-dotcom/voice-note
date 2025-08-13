@@ -14,7 +14,6 @@ if st.button("Speak"):
         st.warning("Please enter some text!")
     else:
         try:
-            # This returns raw bytes of the audio
             response = client.audio.speech.create(
                 model="playai-tts",
                 voice="Aaliyah-PlayAI",
@@ -22,9 +21,12 @@ if st.button("Speak"):
                 input=text,
             )
 
+            # Extract bytes from the BinaryAPIResponse object
+            audio_bytes = response.read()
+
             # Save bytes to a temporary wav file
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
-                tmp_file.write(response)  # write raw bytes
+                tmp_file.write(audio_bytes)
                 tmp_file_path = tmp_file.name
 
             st.audio(tmp_file_path)
