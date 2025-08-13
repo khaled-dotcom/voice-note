@@ -1,30 +1,31 @@
 import streamlit as st
 from groq import Groq
-from io import BytesIO
+from pathlib import Path
 
-API_KEY = "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"
+API_KEY = "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"  # Replace with your actual Groq API key
+
 client = Groq(api_key=API_KEY)
 
-st.title("Text to Speech with Groq API")
+st.title("Speech to Text with Groq API")
 
-text_input = st.text_area("Enter text to convert to speech", height=150)
+audio_input = st.audio(
+    st.file_uploader("Upload an audio file (wav, mp3, m4a)", type=["wav", "mp3", "m4a"])
+)
 
-if st.button("Generate Speech"):
-    if not text_input.strip():
-        st.warning("Please enter some text!")
-    else:
-        with st.spinner("Generating speech..."):
-            try:
-                response = client.audio.speech.create(
-                    model="playai-tts",
-                    voice="Aaliyah-PlayAI",
-                    response_format="wav",
-                    input=text_input,
-                )
-                audio_bytes = BytesIO()
-                response.stream_to_file(audio_bytes)
-                audio_bytes.seek(0)
-                st.audio(audio_bytes, format="audio/wav")
-                st.success("Speech generated successfully!")
-            except Exception as e:
-                st.error(f"Error: {e}")
+if audio_input is not None:
+    # Save uploaded file temporarily
+    audio_bytes = audio_input.read()
+    temp_audio_path = Path("temp_audio.wav")
+    with open(temp_audio_path, "wb") as f:
+        f.write(audio_bytes)
+
+    with open(temp_audio_path, "rb") as f:
+        transcription = client.audio.transcriptions.create(
+            file=(str(temp_audio_path), f.read()),
+            model="whisper-large-v3",
+            response_format="verbose_json",
+        )
+    st.markdown("### Transcription:")
+    st.write(transcription.get("text", "No transcription found"))
+
+    temp_audio_path.unlink()  # delete temp file
