@@ -1,31 +1,46 @@
 import streamlit as st
 from groq import Groq
 from pathlib import Path
+import tempfile
 
-API_KEY = "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"  # Replace with your actual Groq API key
-
+API_KEY = "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"  # Put your Groq API key here
 client = Groq(api_key=API_KEY)
 
-st.title("Speech to Text with Groq API")
+st.title("Voice to Text and Back to Speech")
 
-audio_input = st.audio(
-    st.file_uploader("Upload an audio file (wav, mp3, m4a)", type=["wav", "mp3", "m4a"])
-)
+uploaded_audio = st.file_uploader("Upload your audio (wav, mp3, m4a)", type=["wav", "mp3", "m4a"])
 
-if audio_input is not None:
-    # Save uploaded file temporarily
-    audio_bytes = audio_input.read()
-    temp_audio_path = Path("temp_audio.wav")
-    with open(temp_audio_path, "wb") as f:
-        f.write(audio_bytes)
+if uploaded_audio is not None:
+    # Save audio to temp file
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
+        tmp_file.write(uploaded_audio.read())
+        tmp_filepath = tmp_file.name
 
-    with open(temp_audio_path, "rb") as f:
+    # Send audio to Groq whisper-large-v3 speech-to-text
+    with open(tmp_filepath, "rb") as f:
         transcription = client.audio.transcriptions.create(
-            file=(str(temp_audio_path), f.read()),
+            file=(tmp_filepath, f.read()),
             model="whisper-large-v3",
             response_format="verbose_json",
         )
-    st.markdown("### Transcription:")
-    st.write(transcription.get("text", "No transcription found"))
+    
+    text = transcription.get("text", "")
+    st.markdown("### Transcribed Text:")
+    st.write(text)
 
-    temp_audio_path.unlink()  # delete temp file
+    if text:
+        # Convert text back to speech using Groq TTS
+        tts_response = client.audio.speech.create(
+            model="playai-tts",
+            voice="Aaliyah-PlayAI",
+            response_format="wav",
+            input=text,
+        )
+        audio_path = tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name
+        tts_response.stream_to_file(audio_path)
+        
+        st.audio(audio_path)
+
+    # Clean up temp audio file
+    Path(tmp_filepath).unlink()
+
